@@ -138,6 +138,7 @@ def tag_pos(sentences, tagger='kkma'):
     return morph_lists
 
 
+start = time.time()
 if __name__=="__main__":
     ############################
     # Load input text
@@ -149,8 +150,11 @@ if __name__=="__main__":
         test_sentences = tag_pos(sentences, tagger='mecab')
         pprint(test_sentences)
 
+    end=time.time() ; print "... Morphological Analysis: {:.3f}s".format(end-start) ; start=end
 
+    #JJHWANG
     print "Loading...NER model"
+
     model = Model(model_path=model_path)
     parameters = model.parameters
 
@@ -160,12 +164,13 @@ if __name__=="__main__":
         for x in [model.id_to_word, model.id_to_slb, model.id_to_char, model.id_to_tag, model.id_to_pos]
     ]
     id_to_tag = model.id_to_tag
+    end=time.time() ; print "... Loading Model: {:.3f}s".format(end-start) ; start=end
 
     # Load the model
     _, f_eval = model.build(training=False, **parameters)
     model.reload()
+    end=time.time() ; print "... Build Model: {:.3f}s".format(end-start) ; start=end
 
-    start = time.time()
 
     print 'Running...NER'
     test_data = prepare_sentence(test_sentences, word_to_id, slb_to_id, char_to_id, pos_to_id)
@@ -186,3 +191,4 @@ if __name__=="__main__":
                                             id_to_tag, gazette_dict, max_label_len=parameters['lexicon_dim'],
                                             output_path=output_filename)
 
+    end=time.time() ; print "... Evaluate Sentence: {:.3f}s".format(end-start) ; start=end

@@ -1,3 +1,4 @@
+#from __future__ import print_function
 import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -10,6 +11,9 @@ import numpy as np
 eval_path = "./evaluation"
 eval_script = os.path.join(eval_path, "conlleval")
 
+
+#def eprint(*args, **kwargs):
+#    print(*args, file=sys.stderr, **kwargs)
 
 def create_dico(item_list):
     """
@@ -316,8 +320,12 @@ def evaluate_lexicon_tagger(parameters, f_eval, raw_sentences, parsed_sentences,
         for p in predictions:
             temp = p.split()
             for i in temp:
-                f.write(str(i).decode('utf-8').encode('cp949')+'\t')
+                # JAEJUNH
+                #f.write(str(i).decode('utf-8').encode('cp949')+'\t')
+                f.write(str(i).decode('utf-8')+'\t')
+                sys.stderr.write(str(i).decode('utf-8')+'\t')
             f.write('\n')
+            sys.stderr.write('\n')
 
     return sentence_lists
 
