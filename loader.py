@@ -19,6 +19,9 @@ def load_sentences(path, zeros):
     with open(path, 'r') as f:
     # for line in codecs.open(path, 'r', 'utf8'):
         for line in f.readlines():
+            print("line: " + line)
+            print("isNumber: " + isNumber(line.rstrip()))
+            exit(0)
             line = isNumber(line.rstrip()) if zeros else line.rstrip()
             if not line:
                 if len(sentence) > 0:
@@ -203,7 +206,8 @@ def prepare_sentence(sentences, word_to_id, slb_to_id, char_to_id, pos_to_id):
         for w in str_words:
             char_list = []
             for sl in w:
-                if name(sl).startswith('HANGUL'):
+                # JAEJUNH
+                if name(sl,None) is not None and name(sl).startswith('HANGUL'):
                     for c in separate(sl):
                         if c in char_to_id:
                             char_list.append(char_to_id[c])

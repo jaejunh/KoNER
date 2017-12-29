@@ -11,6 +11,7 @@ import numpy as np
 eval_path = "./evaluation"
 eval_script = os.path.join(eval_path, "conlleval")
 
+import time
 
 #def eprint(*args, **kwargs):
 #    print(*args, file=sys.stderr, **kwargs)
@@ -287,19 +288,28 @@ def evaluate_lexicon_tagger(parameters, f_eval, raw_sentences, parsed_sentences,
     """
     Evaluate current model using CoNLL script.
     """
+    mydebug=0
     predictions = []
     count = 0
     sentence_lists = []
+
+    start=time.time()
+
     for raw_sentence, data in zip(raw_sentences, parsed_sentences):
         sentence_list = []
         count += 1
         if count % 50 == 0:
             print count, "/", len(raw_sentences),"..."
+            end=time.time() ; print "\t\t", count, " ... : {:.3f}s".format(end-start) ; start=end
+
         input = create_input(data, parameters, False, singletons=None, gazette_dict=gazette_dict,
                              max_label_len=max_label_len)
+
         if parameters['crf']:
+            if mydebug: print("debug 2.1")
             y_preds = np.array(f_eval(*input))[1:-1]
         else:
+            if mydebug: print("debug 2.2")
             y_preds = f_eval(*input).argmax(axis=1)
 
         p_tags = [id_to_tag[y_pred] for y_pred in y_preds]

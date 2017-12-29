@@ -38,7 +38,15 @@ assert os.path.isfile(opts.input)
 assert len(opts.preprocess) > 0
 
 
-def split_sentence(input_filename):
+def zero_digits(s):
+    """
+    Replace every digit in a string by a zero.
+    """
+    return re.sub('\d', '0', s)
+
+
+
+def split_sentence(input_filename,zeros):
     """
     Split raw document into sentences
     :return: list of sentences
@@ -47,6 +55,8 @@ def split_sentence(input_filename):
     with open(input_filename, 'rb') as f:
         for line in f.readlines():
             line = line.strip()
+            if zeros:
+                line=zero_digits(line)
             if line != '':
                 line = re.split(r' *[\.\?!][\'"\)\]]* *', line)
                 for l in line:
@@ -140,18 +150,6 @@ def tag_pos(sentences, tagger='kkma'):
 
 start = time.time()
 if __name__=="__main__":
-    ############################
-    # Load input text
-    ############################
-    if is_preprocess == 1:
-        test_sentences = load_sentences(input_filename, zeros=1)
-    else:
-        sentences = split_sentence(input_filename)
-        test_sentences = tag_pos(sentences, tagger='mecab')
-        pprint(test_sentences)
-
-    end=time.time() ; print "... Morphological Analysis: {:.3f}s".format(end-start) ; start=end
-
     #JJHWANG
     print "Loading...NER model"
 
@@ -171,9 +169,9 @@ if __name__=="__main__":
     model.reload()
     end=time.time() ; print "... Build Model: {:.3f}s".format(end-start) ; start=end
 
-
-    print 'Running...NER'
-    test_data = prepare_sentence(test_sentences, word_to_id, slb_to_id, char_to_id, pos_to_id)
+    ############################
+    # Load Gazette 
+    ############################
     gazette_dict = make_gazette_to_dic(dict_path)
 
     gazette_dict_for, gazette_dict_len = dict(), dict()
@@ -187,6 +185,23 @@ if __name__=="__main__":
                 gazette_dict_for[words] = tag
 
     gazette_dict_len = sorted(gazette_dict_len.iteritems(), key=itemgetter(1), reverse=True)
+    end=time.time() ; print "... Building Gazette Dictionary: {:.3f}s".format(end-start) ; start=end
+
+    ############################
+    # Load input text
+    ############################
+    if is_preprocess == 1:
+        test_sentences = load_sentences(input_filename, zeros=1)
+    else:
+        sentences = split_sentence(input_filename,zeros=1)
+        test_sentences = tag_pos(sentences, tagger='mecab')
+        pprint(test_sentences)
+
+    end=time.time() ; print "... Morphological Analysis: {:.3f}s".format(end-start) ; start=end
+
+
+    print 'Running...NER'
+    test_data = prepare_sentence(test_sentences, word_to_id, slb_to_id, char_to_id, pos_to_id)
     sentence_lists = evaluate_lexicon_tagger(parameters, f_eval, test_sentences, test_data,
                                             id_to_tag, gazette_dict, max_label_len=parameters['lexicon_dim'],
                                             output_path=output_filename)
