@@ -13,6 +13,8 @@ eval_script = os.path.join(eval_path, "conlleval")
 
 import time
 
+from konlpy.utils import pprint
+
 #def eprint(*args, **kwargs):
 #    print(*args, file=sys.stderr, **kwargs)
 
@@ -301,6 +303,11 @@ def evaluate_lexicon_tagger(parameters, f_eval, raw_sentences, parsed_sentences,
         if count % 50 == 0:
             print count, "/", len(raw_sentences),"..."
             end=time.time() ; print "\t\t", count, " ... : {:.3f}s".format(end-start) ; start=end
+
+        #if count >= 0 and count <= 50:
+        if count >= 13950 and count <= 14000:
+            print "----- ",count, " ------"
+            pprint(raw_sentence)
 
         input = create_input(data, parameters, False, singletons=None, gazette_dict=gazette_dict,
                              max_label_len=max_label_len)
