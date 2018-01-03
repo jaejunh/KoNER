@@ -6,7 +6,7 @@ import os
 import time
 from loader import make_gazette_to_dic, prepare_sentence
 
-from utils import evaluate_lexicon_tagger
+from utils import evaluate_lexicon_tagger, zero_digits
 from loader import load_sentences
 from model import Model
 from konlpy.tag import Kkma, Mecab
@@ -36,14 +36,6 @@ is_preprocess = opts.preprocess
 
 assert os.path.isfile(opts.input)
 assert len(opts.preprocess) > 0
-
-
-def zero_digits(s):
-    """
-    Replace every digit in a string by a zero.
-    """
-    return re.sub('\d', '0', s)
-
 
 
 def split_sentence(input_filename,zeros):

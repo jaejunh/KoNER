@@ -10,8 +10,11 @@ import theano.tensor as T
 import codecs
 import cPickle
 
+#from theano.compile.debugmode import DebugMode
+
 floatX = theano.config.floatX
 theano.config.exception_verbosity='high'
+#theano.config.optimizer='fast_compile'
 
 
 class Model(object):
@@ -415,6 +418,7 @@ class Model(object):
                 outputs=forward(observations, transitions, viterbi=True,
                                 return_alpha=False, return_best_sequence=True),
                 givens=({is_train: np.cast['int32'](0)} if dropout else {})
+                #, mode=DebugMode(check_isfinite=True)
             )
 
         return f_train, f_eval

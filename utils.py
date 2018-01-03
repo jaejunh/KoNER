@@ -284,6 +284,17 @@ def evaluate_lexicon(parameters, f_eval, raw_sentences, parsed_sentences,
     return float(eval_lines[1].strip().split()[-1])
 
 
+def is_valid_sentence(raw_sentence):
+    total_len=0
+    # get *uniq* word length in utf-8
+    #print("-----")
+    #pprint(raw_sentence)
+    dic={x[0]: len(str(x[0]).decode('utf-8')) for x in raw_sentence}
+    return reduce(lambda x,y: x+y, dic.values()) > 1
+    #return False
+        
+    
+
 def evaluate_lexicon_tagger(parameters, f_eval, raw_sentences, parsed_sentences,
                             id_to_tag, gazette_dict, max_label_len, output_path):
 
@@ -305,29 +316,36 @@ def evaluate_lexicon_tagger(parameters, f_eval, raw_sentences, parsed_sentences,
             end=time.time() ; print "\t\t", count, " ... : {:.3f}s".format(end-start) ; start=end
 
         #if count >= 0 and count <= 50:
-        if count >= 13950 and count <= 14000:
-            print "----- ",count, " ------"
-            pprint(raw_sentence)
+        #if count >= 13950 and count <= 14000:
+        if mydebug:
+            #print "----- ",count, " ------"
+            pprint([count, raw_sentence])
 
-        input = create_input(data, parameters, False, singletons=None, gazette_dict=gazette_dict,
+        if is_valid_sentence(raw_sentence):
+            input = create_input(data, parameters, False, singletons=None, gazette_dict=gazette_dict,
                              max_label_len=max_label_len)
 
-        if parameters['crf']:
-            if mydebug: print("debug 2.1")
-            y_preds = np.array(f_eval(*input))[1:-1]
+            if parameters['crf']:
+                if mydebug == 2: print("debug 2.1")
+                y_preds = np.array(f_eval(*input))[1:-1]
+            else:
+                if mydebug == 2: print("debug 2.2")
+                y_preds = f_eval(*input).argmax(axis=1)
+
+            p_tags = [id_to_tag[y_pred] for y_pred in y_preds]
+
+            if parameters['tag_scheme'] == 'iobes' or parameters['tag_scheme'] == 'iobs':
+                p_tags = iobes_iob(p_tags)
+
+            for i in range(len(y_preds)):
+                new_line = str(raw_sentence[i][0]) + '\t' + str(raw_sentence[i][1]) + '\t' + str(p_tags[i])
+                predictions.append(new_line)
+                sentence_list.append(new_line)
         else:
-            if mydebug: print("debug 2.2")
-            y_preds = f_eval(*input).argmax(axis=1)
-
-        p_tags = [id_to_tag[y_pred] for y_pred in y_preds]
-
-        if parameters['tag_scheme'] == 'iobes' or parameters['tag_scheme'] == 'iobs':
-            p_tags = iobes_iob(p_tags)
-
-        for i in range(len(y_preds)):
-            new_line = str(raw_sentence[i][0]) + '\t' + str(raw_sentence[i][1]) + '\t' + str(p_tags[i])
-            predictions.append(new_line)
-            sentence_list.append(new_line)
+            for i in range(len(raw_sentence)):
+                new_line = str(raw_sentence[i][0]) + '\t' + str(raw_sentence[i][1]) + '\t' + 'NOK' 
+                predictions.append(new_line)
+                sentence_list.append(new_line)
         sentence_lists.append(sentence_list)
         predictions.append("")
 
