@@ -1,4 +1,9 @@
+#STDERR Printing
+from __future__ import print_function
 import sys
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
@@ -186,7 +191,7 @@ class Model(object):
             # Initialize with pretrained embeddings
             if pre_emb and training:
                 new_weights = word_layer.embeddings.get_value()
-                print 'Loading pretrained embeddings...'
+                eprint('Loading pretrained embeddings...')
                 pretrained = {}
                 emb_invalid = 0
                 for i, line in enumerate(codecs.open(pre_emb, 'r', 'utf-8')):
@@ -393,7 +398,7 @@ class Model(object):
             lr_method_parameters = {}
 
         # Compile training function
-        print 'Compiling...'
+        eprint('Compiling...')
         if training:
             updates = Optimization(clip=5.0).get_updates(lr_method_name, cost, params, **lr_method_parameters)
             f_train = theano.function(

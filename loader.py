@@ -1,4 +1,9 @@
+#STDERR Printing
+from __future__ import print_function
 import sys
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
@@ -19,9 +24,6 @@ def load_sentences(path, zeros):
     with open(path, 'r') as f:
     # for line in codecs.open(path, 'r', 'utf8'):
         for line in f.readlines():
-            print("line: " + line)
-            print("isNumber: " + isNumber(line.rstrip()))
-            exit(0)
             line = isNumber(line.rstrip()) if zeros else line.rstrip()
             if not line:
                 if len(sentence) > 0:
@@ -125,9 +127,9 @@ def word_mapping(sentences):
     dico = create_dico(words)
     dico['<UNK>'] = 10000000
     word_to_id, id_to_word = create_mapping(dico)
-    print "Found %i unique words (%i in total)" % (
+    eprint("Found %i unique words (%i in total)" % (
         len(dico), sum(len(x) for x in words)
-    )
+    ))
     return dico, word_to_id, id_to_word
 
 
@@ -162,7 +164,7 @@ def char_mapping(sentences, isCharacter=True):
     chars = sentence_lists
     dico = create_dico(chars)
     char_to_id, id_to_char = create_mapping(dico)
-    print "Found %i unique characters" % len(dico)
+    eprint("Found %i unique characters" % len(dico))
     return dico, char_to_id, id_to_char
 
 
@@ -173,7 +175,7 @@ def tag_mapping(sentences):
     tags = [[word[-1] for word in s] for s in sentences]
     dico = create_dico(tags)
     tag_to_id, id_to_tag = create_mapping(dico)
-    print "Found %i unique named entity tags" % len(dico)
+    eprint("Found %i unique named entity tags" % len(dico))
     return dico, tag_to_id, id_to_tag
 
 
@@ -185,7 +187,7 @@ def pos_mapping(sentences, position=1):
     tags = [[word[position] for word in s] for s in sentences]
     dico = create_dico(tags)
     tag_to_id, id_to_tag = create_mapping(dico)
-    print "Found %i unique named entity tags" % len(dico)
+    eprint("Found %i unique named entity tags" % len(dico))
     return dico, tag_to_id, id_to_tag
 
 
@@ -280,7 +282,7 @@ def augment_with_pretrained(dictionary, ext_emb_path, words):
     to the dictionary, otherwise, we only add the words that are given by
     `words` (typically the words in the development and test sets.)
     """
-    print 'Loading pretrained embeddings from %s...' % ext_emb_path
+    eprint('Loading pretrained embeddings from %s...' % ext_emb_path)
     assert os.path.isfile(ext_emb_path)
 
     # Load pretrained embeddings from file

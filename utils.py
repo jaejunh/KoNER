@@ -1,5 +1,9 @@
-#from __future__ import print_function
+#STDERR Printing
+from __future__ import print_function
 import sys
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
@@ -14,9 +18,6 @@ eval_script = os.path.join(eval_path, "conlleval")
 import time
 
 from konlpy.utils import pprint
-
-#def eprint(*args, **kwargs):
-#    print(*args, file=sys.stderr, **kwargs)
 
 def create_dico(item_list):
     """
@@ -262,24 +263,24 @@ def evaluate_lexicon(parameters, f_eval, raw_sentences, parsed_sentences,
     # CoNLL evaluation results
     eval_lines = [l.rstrip() for l in codecs.open(scores_path, 'r', 'utf8')]
     for line in eval_lines:
-        print line
+        eprint(line)
 
     # Confusion matrix with accuracy for each tag
-    print ("{: >2}{: >7}{: >7}%s{: >9}" % ("{: >7}" * n_tags)).format(
+    eprint(("{: >2}{: >7}{: >7}%s{: >9}" % ("{: >7}" * n_tags)).format(
             "ID", "NE", "Total",
             *([id_to_tag[i] for i in xrange(n_tags)] + ["Percent"])
-    )
+    ))
     for i in xrange(n_tags):
-        print ("{: >2}{: >7}{: >7}%s{: >9}" % ("{: >7}" * n_tags)).format(
+        eprint(("{: >2}{: >7}{: >7}%s{: >9}" % ("{: >7}" * n_tags)).format(
                 str(i), id_to_tag[i], str(count[i].sum()),
                 *([count[i][j] for j in xrange(n_tags)] +
                   ["%.3f" % (count[i][i] * 100. / max(1, count[i].sum()))])
-        )
+        ))
 
     # Global accuracy
-    print "%i/%i (%.5f%%)" % (
+    eprint("%i/%i (%.5f%%)" % (
         count.trace(), count.sum(), 100. * count.trace() / max(1, count.sum())
-    )
+    ))
 
     return float(eval_lines[1].strip().split()[-1])
 
@@ -287,16 +288,14 @@ def evaluate_lexicon(parameters, f_eval, raw_sentences, parsed_sentences,
 def is_valid_sentence(raw_sentence):
     total_len=0
     # get *uniq* word length in utf-8
-    #print("-----")
-    #pprint(raw_sentence)
+    #print("-----");  #pprint(raw_sentence)
     dic={x[0]: len(str(x[0]).decode('utf-8')) for x in raw_sentence}
     return reduce(lambda x,y: x+y, dic.values()) > 1
-    #return False
         
     
 
 def evaluate_lexicon_tagger(parameters, f_eval, raw_sentences, parsed_sentences,
-                            id_to_tag, gazette_dict, max_label_len, output_path):
+                            id_to_tag, gazette_dict, max_label_len, output_path=None):
 
     """
     Evaluate current model using CoNLL script.
@@ -312,24 +311,24 @@ def evaluate_lexicon_tagger(parameters, f_eval, raw_sentences, parsed_sentences,
         sentence_list = []
         count += 1
         if count % 50 == 0:
-            print count, "/", len(raw_sentences),"..."
-            end=time.time() ; print "\t\t", count, " ... : {:.3f}s".format(end-start) ; start=end
+            eprint(count, "/", len(raw_sentences),"...")
+            end=time.time() ; eprint("\t\t", count, " ... : {:.3f}s".format(end-start)) ; start=end
 
         #if count >= 0 and count <= 50:
         #if count >= 13950 and count <= 14000:
         if mydebug:
             #print "----- ",count, " ------"
-            pprint([count, raw_sentence])
+            pprint([count, raw_sentence],stream=sys.stderr)
 
         if is_valid_sentence(raw_sentence):
             input = create_input(data, parameters, False, singletons=None, gazette_dict=gazette_dict,
                              max_label_len=max_label_len)
 
             if parameters['crf']:
-                if mydebug == 2: print("debug 2.1")
+                if mydebug == 2: eprint("debug 2.1")
                 y_preds = np.array(f_eval(*input))[1:-1]
             else:
-                if mydebug == 2: print("debug 2.2")
+                if mydebug == 2: eprint("debug 2.2")
                 y_preds = f_eval(*input).argmax(axis=1)
 
             p_tags = [id_to_tag[y_pred] for y_pred in y_preds]
@@ -349,18 +348,19 @@ def evaluate_lexicon_tagger(parameters, f_eval, raw_sentences, parsed_sentences,
         sentence_lists.append(sentence_list)
         predictions.append("")
 
-    output_path = os.path.join(output_path)
+    if output_path is not None:
+        output_path = os.path.join(output_path)
 
-    with open(output_path, 'w') as f:
-        for p in predictions:
-            temp = p.split()
-            for i in temp:
-                # JAEJUNH
-                #f.write(str(i).decode('utf-8').encode('cp949')+'\t')
-                f.write(str(i).decode('utf-8')+'\t')
-                sys.stderr.write(str(i).decode('utf-8')+'\t')
-            f.write('\n')
-            sys.stderr.write('\n')
+        with open(output_path, 'w') as f:
+            for p in predictions:
+                temp = p.split()
+                for i in temp:
+                    # JAEJUNH
+                    #f.write(str(i).decode('utf-8').encode('cp949')+'\t')
+                    f.write(str(i).decode('utf-8')+'\t')
+                    sys.stderr.write(str(i).decode('utf-8')+'\t')
+                f.write('\n')
+                sys.stderr.write('\n')
 
     return sentence_lists
 
