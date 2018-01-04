@@ -41,5 +41,5 @@ python main.py -s
 Then, try:
 ```
 curl -i -H  "Content-Type: application/json" -X POST -d '{"text":"26일(한국시간) 손흥민은 영국 런던 웸블리 스타디움에서 열린 2017-2018 영국 프리미어리그 20라운드 사우스햄튼 FC와의 홈경기에서 시즌 9호골을 터트리며 팀의 5-2 승리
-에 힘을 보탰다."}' http://localhost:5000/korner/api/v1.0/tag
+에 힘을 보탰다."}' http://localhost:5000/koner/api/v1.0/tag
 ```

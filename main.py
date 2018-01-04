@@ -208,6 +208,7 @@ def is_continue_tag(bioes):
 def collect_NER(sentence_lists):
     result=[]
     for sentence in sentence_lists:
+        score=0
         cur=""
         collection=[]
         for tagged_word in sentence:
@@ -218,22 +219,25 @@ def collect_NER(sentence_lists):
                 # do flush collectiona -> result
                 if len(collection) > 0: 
                     #eprint("...new append" + " " + ' '.join(collection))
-                    result.append({ cur: ' '.join(collection) })
+                    result.append({ cur: ' '.join(collection) , 'score': "%0.2f" % score })
                     collection=[]
+                    score=0
                 # now start new tag
                 if tag[0] == 'B' or tag[0] == 'S':
                     cur=tag[1]
                     collection=[taglist[0]]
+                    score=float(taglist[3])
             elif is_continue_tag(tag[0]):
                 #eprint("i-tag: " + tag[0] + " " + taglist[0])
                 # no flush tag.  keep adding
                 collection.append(taglist[0])
+                score += float(taglist[3])
             else:
                 # invalid tag
                 pass
         
         # flush if collection exist
-        if len(collection) > 0: result.append({ cur: ' '.join(collection) })
+        if len(collection) > 0: result.append({ cur: ' '.join(collection), 'score': "%0.2f" % score })
     return result
                 
 
@@ -268,6 +272,7 @@ if __name__=="__main__":
 
     model = Model(model_path=model_path)
     parameters = model.parameters
+    #parameters['crf'] = False
     if not server_mode: pprint(parameters,stream=sys.stderr)
 
     # Load the mappings
@@ -276,6 +281,7 @@ if __name__=="__main__":
         for x in [model.id_to_word, model.id_to_slb, model.id_to_char, model.id_to_tag, model.id_to_pos]
     ]
     id_to_tag = model.id_to_tag
+    pprint(id_to_tag)
     end=time.time() ; eprint("... Loading Model: {:.3f}s".format(end-start)) ; start=end
 
     # Load the model
@@ -305,15 +311,14 @@ if __name__=="__main__":
     # Load input text
     ############################
     if server_mode:
-        app.run(debug=True)
+        app.run(debug=False, host='0.0.0.0')
     else:
         if is_preprocess == 1:
             test_sentences = load_sentences(input_filename, zeros=1)
         else:
             sentences = split_sentence(input_filename,zeros=0)
             test_sentences = tag_pos(sentences, tagger='mecab')
-            pprint(test_sentences,stream=sys.stderr)
-            #pprint(test_sentences)
+            #pprint(test_sentences,stream=sys.stderr)
 
             end=time.time() ; eprint("... Morphological Analysis: {:.3f}s".format(end-start)) ; start=end
 

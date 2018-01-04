@@ -21,6 +21,8 @@ floatX = theano.config.floatX
 theano.config.exception_verbosity='high'
 #theano.config.optimizer='fast_compile'
 
+from konlpy.utils import pprint
+
 
 class Model(object):
     """
@@ -283,15 +285,21 @@ class Model(object):
         word_rev_output = word_lstm_rev.h[::-1, :]
         if word_bidirect:
             final_output = T.concatenate([word_for_output, word_rev_output], axis=1)
+            final_output2 = T.concatenate([word_for_output, word_rev_output], axis=1)
             tanh_layer = HiddenLayer(2 * word_lstm_dim, word_lstm_dim, name='tanh_layer', activation='tanh')
+            tanh_layer2 = HiddenLayer(2 * word_lstm_dim, word_lstm_dim, name='tanh_layer', activation='tanh')
             final_output = tanh_layer.link(final_output)
+            final_output2 = tanh_layer.link(final_output2)
         else:
             final_output = word_for_output
 
         # Sentence to Named Entity tags - Score
         final_layer = HiddenLayer(word_lstm_dim, n_tags, name='final_layer',
                                   activation=(None if crf else 'softmax'))
+        final_layer2 = HiddenLayer(word_lstm_dim, n_tags, name='final_layer',
+                                  activation='softmax')
         tags_scores = final_layer.link(final_output)
+        tags_scores2 = final_layer2.link(final_output2)
 
         # No CRF
         if not crf:
@@ -420,8 +428,9 @@ class Model(object):
         else:
             f_eval = theano.function(
                 inputs=eval_inputs,
-                outputs=forward(observations, transitions, viterbi=True,
-                                return_alpha=False, return_best_sequence=True),
+                outputs=[ forward(observations, transitions, viterbi=True,
+                                return_alpha=False, return_best_sequence=True), 
+                            tags_scores, tags_scores2],
                 givens=({is_train: np.cast['int32'](0)} if dropout else {})
                 #, mode=DebugMode(check_isfinite=True)
             )
@@ -698,8 +707,9 @@ def forward(observations, transitions, viterbi=False,
             outputs_info=T.cast(T.argmax(alpha[0][-1]), 'int32'),
             sequences=T.cast(alpha[1][::-1], 'int32')
         )
+        #pprint(T,stream=sys.stderr)
         sequence = T.concatenate([sequence[::-1], [T.argmax(alpha[0][-1])]])
-        return sequence
+        return  sequence
     else:
         if viterbi:
             return alpha[-1].max(axis=0)

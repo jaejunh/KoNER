@@ -300,7 +300,7 @@ def evaluate_lexicon_tagger(parameters, f_eval, raw_sentences, parsed_sentences,
     """
     Evaluate current model using CoNLL script.
     """
-    mydebug=0
+    mydebug=2
     predictions = []
     count = 0
     sentence_lists = []
@@ -321,28 +321,40 @@ def evaluate_lexicon_tagger(parameters, f_eval, raw_sentences, parsed_sentences,
             pprint([count, raw_sentence],stream=sys.stderr)
 
         if is_valid_sentence(raw_sentence):
+            #if mydebug ==2: parameters['crf']=False
             input = create_input(data, parameters, False, singletons=None, gazette_dict=gazette_dict,
                              max_label_len=max_label_len)
 
             if parameters['crf']:
                 if mydebug == 2: eprint("debug 2.1")
-                y_preds = np.array(f_eval(*input))[1:-1]
+                result=np.array(f_eval(*input))
+                #pprint(result,stream=sys.stderr)
+                y_preds = result[0][1:-1]
+                y_scores = result[1]
+                #y_preds = np.array(f_eval(*input))[1:-1]
             else:
                 if mydebug == 2: eprint("debug 2.2")
-                y_preds = f_eval(*input).argmax(axis=1)
+                result=np.array(f_eval(*input))
+                #pprint(result,stream=sys.stderr)
+                y_preds = result.argmax(axis=1)
+                y_scores = result
+                #y_preds = f_eval(*input).argmax(axis=1)
 
             p_tags = [id_to_tag[y_pred] for y_pred in y_preds]
-
+            p_scores = [ y_scores[i][y_preds[i]] for i in range(len(y_preds)) ]
+            #pprint(p_scores, stream=sys.stderr)
+            
+                
             if parameters['tag_scheme'] == 'iobes' or parameters['tag_scheme'] == 'iobs':
                 p_tags = iobes_iob(p_tags)
 
             for i in range(len(y_preds)):
-                new_line = str(raw_sentence[i][0]) + '\t' + str(raw_sentence[i][1]) + '\t' + str(p_tags[i])
+                new_line = str(raw_sentence[i][0]) + '\t' + str(raw_sentence[i][1]) + '\t' + str(p_tags[i]) + '\t' + ("%0.2f" % p_scores[i])
                 predictions.append(new_line)
                 sentence_list.append(new_line)
         else:
             for i in range(len(raw_sentence)):
-                new_line = str(raw_sentence[i][0]) + '\t' + str(raw_sentence[i][1]) + '\t' + 'NOK' 
+                new_line = str(raw_sentence[i][0]) + '\t' + str(raw_sentence[i][1]) + '\t' + 'NOK' + '\t0' 
                 predictions.append(new_line)
                 sentence_list.append(new_line)
         sentence_lists.append(sentence_list)
