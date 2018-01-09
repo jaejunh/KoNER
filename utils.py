@@ -300,7 +300,7 @@ def evaluate_lexicon_tagger(parameters, f_eval, raw_sentences, parsed_sentences,
     """
     Evaluate current model using CoNLL script.
     """
-    mydebug=2
+    mydebug=0
     predictions = []
     count = 0
     sentence_lists = []
