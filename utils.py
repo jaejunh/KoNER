@@ -333,6 +333,12 @@ def evaluate_lexicon_tagger(parameters, f_eval, raw_sentences, parsed_sentences,
                     f_result=[]
                     
                 if f_result is None or len(f_result) == 0:
+                    for i in range(len(raw_sentence)):
+                        new_line = str(raw_sentence[i][0]) + '\t' + str(raw_sentence[i][1]) + '\t' + 'NOK2' + '\t0'
+                        predictions.append(new_line)
+                        sentence_list.append(new_line)
+                    sentence_lists.append(sentence_list)
+                    predictions.append("")
                     continue
 
                 result=np.array(f_result)
