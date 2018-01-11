@@ -327,7 +327,15 @@ def evaluate_lexicon_tagger(parameters, f_eval, raw_sentences, parsed_sentences,
 
             if parameters['crf']:
                 if mydebug == 2: eprint("debug 2.1")
-                result=np.array(f_eval(*input))
+                try:
+                    f_result=f_eval(*input)
+                except:
+                    f_result=[]
+                    
+                if f_result is None or len(f_result) == 0:
+                    continue
+
+                result=np.array(f_result)
                 #pprint(result,stream=sys.stderr)
                 y_preds = result[0][1:-1]
                 y_scores = result[1]

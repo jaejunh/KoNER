@@ -34,22 +34,76 @@ import json
 from functools import wraps
 from flask import Flask,jsonify,abort,make_response,request,Response
 
+import math
+import redis
 
+
+#############################################################################################
 # GLOBAL VARIABLES
+#############################################################################################
+
+REDIS_DB=10
+HOST='localhost'
+POOL = redis.ConnectionPool(host=HOST, port=6379, db=REDIS_DB)
 
 NER={}
-OTHER={}
 VETO={}
 FREQ={}
-MAX_KEEP=512  # num of tag type *  num of page * 2 = 5 * 3 * 2 = 30
-               # total entry = 30 * num of session(200) = 6000
+MAX_KEEP=30 # num of tag type *  num of page * 2 = 5 * 3 * 2 = 30
+MAX_RETURN=5
 
-MAX_RETURN=10
+#############################################################################################
+# Redis DB or Standalone for session 
+#############################################################################################
+def init_ner_redis():
+    eprint("...............  Init Redis({}) DB({})".format(HOST,REDIS_DB))
+    try:
+        r = redis.Redis(connection_pool=POOL)
+        r.flushdb()
+    except:
+        eprint("---->Error:  Flushing Redis data")
 
+
+def store_ner_redis(sessionkey,ner):
+    s_ner = json.dumps(ner)
+    try:
+        r = redis.Redis(connection_pool=POOL)
+        r.set(sessionkey,s_ner)
+    except:
+        eprint("Error:  Storing Redis data")
+    return ner
+
+def load_ner_redis(sessionkey):
+    ner=[]
+    try:
+        r=redis.Redis(connection_pool=POOL)
+        r_ner=r.get(sessionkey)
+        if r_ner is not None and len(r_ner) > 0: ner=json.loads(r_ner)
+    except:
+        eprint("Error:  Fetching Redis data")
+    #eprint("load_ner_redis")
+    #pp(ner,stream=sys.stderr)
+    return ner
+
+def init_ner_dic(): pass
+
+def store_ner_dic(sessionkey,ner):
+    NER[sessionkey]=ner
+    return ner
+
+def load_ner_dic(sessionkey): return NER.get(sessionkey,[])
+
+# Map Definition of db func 
+load_NER=load_ner_redis
+store_NER=store_ner_redis
+init_NER=init_ner_redis
+
+
+#############################################################################################
 
 def read_VETO(filename):
     with io.open(filename,mode="r", encoding='utf-8') as f:
-        VETO = { v: 1 for line in f.read().splitlines() for v in line.split(',')[1] }
+        VETO = { v[1]: 1 for line in f.read().splitlines() for v in [ line.split(',')[0:2] ] }
     return VETO 
 
 def read_FREQ(filename): 
@@ -71,8 +125,7 @@ def as_json(status=200):
         return wrapper
     return real_as_json 
 
-
-
+#############################################################################################
 
 app = Flask(__name__)
 
@@ -113,7 +166,7 @@ def split_sentence(input_filename,zeros):
             if zeros:
                 line=zero_digits(line)
             if line != '':
-                line = re.split(r' *[\.\?!][\'"\)\]]* *', line)
+                line = re.split(r' *[\.\?!\|][\'"\)\]]* *', line)
                 for l in line:
                     if len(l) > 0:
                         sentences.append(l)
@@ -131,7 +184,7 @@ def split_sentence_from_json(lines,zeros):
             if zeros:
                 line=zero_digits(line)
             if line != '':
-                line = re.split(r' *[\.\?!][\'"\)\]]* *', line)
+                line = re.split(r' *[\.\?!\|][\'"\)\]]* *', line)
                 for l in line:
                     if len(l) > 0:
                         sentences.append(l)
@@ -253,29 +306,14 @@ def token_exist(sessionkey,token):
 
 
 
-def add_NER_orig(sessionkey,ner,NER=NER):
-    #pp(ner,stream=sys.stderr)
-    result=ner
-    if len(NER.get(sessionkey,[])) > 0:
-        collection=[ x['value'] for x in ner ]
-        for i in NER[sessionkey]:
-            if i['value'] not in collection:
-                #eprint("adding ... " + i['value'])
-                i['new']=0
-                result.append(i)
-
-    NER[sessionkey]=result[0:MAX_KEEP]
-    return NER[sessionkey]
-
-
-def add_NER(sessionkey,ner,NER=NER):
+def add_NER(sessionkey,ner,old_ner):
     #pp(ner,stream=sys.stderr)
     result=ner
 
-    if len(NER.get(sessionkey,[])) > 0:
-        ner_unmatched = [ x for x in ner if x['value'] not in [ y['value'] for y in NER[sessionkey] ]] 
-        ner_matched = [ x for x in NER[sessionkey] if x['value'] in [ y['value'] for y in ner ]]
-        ner_leftout = [ x for x in NER[sessionkey] if x['value'] not in [y['value'] for y in ner ]]   
+    if len(old_ner) > 0:
+        ner_unmatched = [ x for x in ner if x['value'] not in [ y['value'] for y in old_ner ]] 
+        ner_matched = [ x for x in old_ner if x['value'] in [ y['value'] for y in ner ]]
+        ner_leftout = [ x for x in old_ner if x['value'] not in [y['value'] for y in ner ]]   
         
         for i in ner_matched:
             i['count'] += 1
@@ -290,10 +328,67 @@ def add_NER(sessionkey,ner,NER=NER):
 
         result = ner_unmatched + ner_matched + ner_leftout
 
-    NER[sessionkey]=result[0:MAX_KEEP]
-    return NER[sessionkey]
+    #NER[sessionkey]=result[0:MAX_KEEP]
+    #return NER[sessionkey]
+    return store_NER(sessionkey,result[0:MAX_KEEP])
 
 
+
+
+def is_number(s):
+    try:
+        complex(s) # for int, long, float and complex
+    except ValueError:
+        return False
+
+    return True
+
+def is_veto(word):
+    return VETO.get(word,0) == 1 
+
+def get_word_freq(word):
+    return FREQ.get(word,0)
+
+def add_score_OTHER(current_OTHER):
+    collection=[]
+    for i in current_OTHER:
+        #eprint("..... other: {}".format(i['value']))
+        if is_number(i['value']):
+            pass
+        elif len(i['value']) > 1 and not is_veto(i['value']):      
+            # score <= inverse frequency 
+            freq=get_word_freq(i['value'])
+            i['score'] = 1/freq if freq > 0 else 0.9
+            i['score'] = float("%0.2f" % i['score'])
+            collection.append(i)
+    return collection
+    
+
+
+def recalc_score(x):
+    word_list = x['value'].split(' ')
+    r = len(re.sub(' ','',x['value'])) 
+
+    if r == 0: return x['score']
+
+    count = 0
+    for i in word_list:
+        if is_veto(i):
+            count += len(i)
+
+    assert count <= r
+
+    # prefered length for keyword is |5|
+    favor_len = 1/math.sqrt(math.fabs(5.0*5.0-r*r)) if r != 5 else 1
+
+    x['score'] = (x['score'] * (1.0 - count / r)) * favor_len
+    return x['score']
+    
+    
+def adjust_veto_score(new_ner):
+    for i in new_ner:
+        i['score'] = recalc_score(i)
+    return new_ner
 
 def collect_NER(sentence_lists):
     result=[]
@@ -319,47 +414,15 @@ def collect_NER(sentence_lists):
             elif is_continue_tag(tag[0]):
                 # no flush tag.  keep adding
                 collection.append(taglist[0])
-                score += float(taglist[3])
+                score = (score+float(taglist[3]))*0.5
             else:
                 # invalid tag
                 pass
         
         # flush if collection exist
         if len(collection) > 0: result.append({ 'tag' : cur, 'value' : ' '.join(collection).decode('utf-8'), 'score': float("%0.2f" % score), 'count': 1 })
+    result=adjust_veto_score(result)
     return result
-
-def is_number(s):
-    try:
-        complex(s) # for int, long, float and complex
-    except ValueError:
-        return False
-
-    return True
-
-def is_veto(word):
-    return VETO.get(word,0) == 1 
-
-def get_word_freq(word):
-    #if u'거문고' == word:
-    #    eprint("\t\t\t.....{}  word({})".format(len(FREQ.keys()),FREQ.get(word,0)))
-    return FREQ.get(word,0)
-
-def add_score_OTHER(current_OTHER):
-    #[ w for w in tokens if not (len(w.split('/')[0]) > 1 and w.split('/')[1].startswith('NN'))]
-    collection=[]
-    for i in current_OTHER:
-        #eprint("..... other: {}".format(i['value']))
-        if is_number(i['value']):
-            pass
-        elif len(i['value']) > 1 and not is_veto(i['value']):      
-            # score <= inverse frequency 
-            freq=get_word_freq(i['value'])
-            i['score'] = 1/freq if freq > 0 else 0.9
-            i['score'] = float("%0.2f" % i['score'])
-            collection.append(i)
-    return collection
-    
-
 
 def collect_OTHER(sentence_lists):
     result=[]
@@ -385,43 +448,48 @@ def collect_OTHER(sentence_lists):
 
 def min(a,b): return a if a < b else b
 
-def dedup(ner):
+def dedup(ner,cutoff=True):
     unique_list=[]
     [unique_list.append(x) for x in ner if "{}/{}".format(x['value'],x.get('tag','')) not in [ "{}/{}".format(y['value'],y.get('tag',''))  for y in unique_list]]
+    unique_list=[ x for x in unique_list if x.get("score",0.0) >= 0.001 and x.get("tag","") not in [ "TI", "DT"] and len(x.get("value","")) > 1 ]
     for i in unique_list:
         i['count']=0
         for j in ner:
             if j['value'] == i['value']:
                 i['score'] = min(i['score'],j['score']) 
                 i['count'] += 1
+    if cutoff:
+        unique_list=[ x for x in unique_list if x.get("score",0.0) >= 2.0 ]
     return unique_list
 
-def choose_best(sessionkey,current_NER, NER):
-    # dedup current_NER  i.e. (one, one, four) => (one,four)
-    current_NER=dedup(current_NER)
+def choose_best(sessionkey,new_ner,old_ner):
+    # dedup new_ner  i.e. (one, one, four) => (one,four)
+    cutoff=len(old_ner) > 0 
+    new_ner=dedup(new_ner,cutoff)
     
     ts=time.time()
-    sorted_NER=sorted(current_NER,key=lambda x: x.get('score',0),reverse=True)[0:MAX_KEEP]
+    sorted_NER=sorted(new_ner,key=lambda x: x.get('score',0),reverse=True)[0:MAX_RETURN]
     for i in sorted_NER:
         i['timestamp']=ts
         i['new']=1
 
     # oldify NER
-    if len(NER.get(sessionkey,[])) > 0:
-        for i in NER[sessionkey]:
+    if len(old_ner) > 0:
+        for i in old_ner:
             i['new']=0
+    
     
 
     if len(sorted_NER) == 0:
         # Fallback to stored values if sessionkey is given
         if len(sessionkey) > 0:
-            sorted_NER=sorted(NER.get(sessionkey,[]),key=lambda x: (x.get('timestamp',0),x.get('score',0)),reverse=True)[0:MAX_KEEP]
+            sorted_NER=sorted(old_ner,key=lambda x: (x.get('new',0),x.get('score',0),x.get('timestamp',0)),reverse=True)[0:MAX_RETURN]
         return sorted_NER
     else:
         # We found answer.  save them for later if sessionkey is given
         if len(sessionkey) > 0:
             #eprint("DEBUG:saving sessionkey ... " + sessionkey)
-            return add_NER(sessionkey,sorted_NER, NER)
+            return add_NER(sessionkey,sorted_NER,old_ner)
     return sorted_NER
 
 ##################################################################################################################
@@ -455,15 +523,16 @@ def evaluate_sentence():
     sentence_lists = evaluate_lexicon_tagger(parameters, f_eval, test_sentences, test_data,
                                             id_to_tag, gazette_dict, max_label_len=parameters['lexicon_dim'])
     
-    current_NER=collect_NER(sentence_lists)
-    current_OTHER=collect_OTHER(sentence_lists)
-    
-    sessionkey=request.json.get('sessionkey',"")[0:8] 
-    
+    sessionkey=request.json.get('sessionkey',"")[0:48] 
+    old_ner=load_NER(sessionkey)
+    new_ner=collect_NER(sentence_lists)
+    result_NER=choose_best(sessionkey,new_ner,old_ner)[0:MAX_RETURN]
+
     result_OTHER=[][0:MAX_RETURN]
-    result_NER=choose_best(sessionkey,current_NER,NER)[0:MAX_RETURN]
-    result_OTHER=choose_best(sessionkey,current_OTHER,OTHER)[0:MAX_RETURN]
-    
+    if 'other' in request.json:
+        current_OTHER=collect_OTHER(sentence_lists)
+        result_OTHER=choose_best("",current_OTHER,[])[0:MAX_RETURN]
+
     if request.json.get('type',"") == "debug":
         return { 'NER': result_NER, 'OTHER': result_OTHER, 'debug': sentence_lists}
 
@@ -478,6 +547,7 @@ FREQ=read_FREQ('./testdata/fdist.csv')
 if __name__=="__main__":
 
     eprint("number of FREQ: {}".format(len(FREQ.keys())))
+    eprint("number of VETO: {}".format(len(VETO.keys()))) #pp(VETO,stream=sys.stderr)
     
     
     eprint("Loading...NER model")
@@ -523,6 +593,7 @@ if __name__=="__main__":
     # Load input text
     ############################
     if server_mode:
+        init_NER()
         app.run(debug=False, host='0.0.0.0')
     else:
         if is_preprocess == 1:
