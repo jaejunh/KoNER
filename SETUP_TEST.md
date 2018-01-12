@@ -43,7 +43,7 @@ source konerenv/bin/activate
 pip install -r requirements.txt
 
 tar xzvfp model.tar.gz
-cat data/gazette.orig data/all.gazette 
+cp data/gazette.orig data/all.gazette 
 # or: scp <repository>:/home/embian/jaejunh/data.tgz  . && tar xzvfp data.tgz
 
 mkdir -p testdata
@@ -79,4 +79,8 @@ http POST http://localhost:5000/koner/api/v1.0/tag other='' type=debug sessionke
 curl -i -H  "Content-Type: application/json" -X POST -d '{"text":"26일(한국시간) 손흥민은 영국 런던 >웸블리 스타디움에서 열린 2017-2018 영국 프리미어리그 20라운드 사우스햄튼 FC와의 홈경기에서 시즌 9호골 을 터트리며 팀의 5-2 승리에 힘을 보탰다."}' http://localhost:5000/koner/api/v1.0/tag
 ```
 
-## 7. Update gazette
+## 7. Update Data Files 
+
+* data/gazette  
+* testdata/fdist.csv (optional, word freq file)
+* testdata/fdist.csv.veto (optional, veto word list for NER)
