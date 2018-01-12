@@ -1,6 +1,9 @@
+Flask==0.12.2
+git+https://github.com/jaejunh/konlpy.git
+lxml==4.1.1
+mecab-python==0.996
 nltk==3.2.1
 numpy==1.11.2
-Theano==1.0.0
-flask==0.12.2
-git+https://github.com/jaejunh/konlpy.git
 redis==2.10.6
+scipy==1.0.0
+Theano==1.0.0

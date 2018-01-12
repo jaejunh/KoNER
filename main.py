@@ -514,6 +514,7 @@ def get_sentence():
 @app.route('/koner/api/v1.0/tag', methods=['POST'])
 @as_json(202)
 def evaluate_sentence():
+    start = time.time()
     if not request.json or not 'text' in request.json:
         abort(400)
     
@@ -532,10 +533,11 @@ def evaluate_sentence():
     if 'other' in request.json:
         current_OTHER=collect_OTHER(sentence_lists)
         result_OTHER=choose_best("",current_OTHER,[])[0:MAX_RETURN]
-
     if request.json.get('type',"") == "debug":
+        end=time.time() ; eprint("... eval time: {:.3f}s".format(end-start)) ; start=end
         return { 'NER': result_NER, 'OTHER': result_OTHER, 'debug': sentence_lists}
 
+    end=time.time() ; eprint("... eval time: {:.3f}s".format(end-start)) ; start=end
     return { 'NER': result_NER, 'OTHER': result_OTHER}
 
 
