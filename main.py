@@ -519,26 +519,31 @@ def evaluate_sentence():
         abort(400)
     
     sentences = split_sentence_from_json(request.json['text'],zeros=0)
+    #end=time.time() ; eprint("... split time: {:.3f}s".format(end-start)) ; start=end
     test_sentences = tag_pos(sentences, tagger='mecab')
+    #end=time.time() ; eprint("... tag time: {:.3f}s".format(end-start)) ; start=end
     test_data = prepare_sentence(test_sentences, word_to_id, slb_to_id, char_to_id, pos_to_id)
     sentence_lists = evaluate_lexicon_tagger(parameters, f_eval, test_sentences, test_data,
                                             id_to_tag, gazette_dict, max_label_len=parameters['lexicon_dim'])
     
-    sessionkey=request.json.get('sessionkey',"")[0:48] 
+    end=time.time() ; eval_time="{:.3f}s".format(end-start); eprint("... eval time: "+eval_time) ; start=end
+    sessionkey=request.json.get('sessionkey',"")[0:40] 
+    note=request.json.get('note',"")[0:40] 
     old_ner=load_NER(sessionkey)
     new_ner=collect_NER(sentence_lists)
     result_NER=choose_best(sessionkey,new_ner,old_ner)[0:MAX_RETURN]
+    #end=time.time() ; eprint("... choosebest time: {:.3f}s".format(end-start)) ; start=end
 
     result_OTHER=[][0:MAX_RETURN]
     if 'other' in request.json:
         current_OTHER=collect_OTHER(sentence_lists)
         result_OTHER=choose_best("",current_OTHER,[])[0:MAX_RETURN]
     if request.json.get('type',"") == "debug":
-        end=time.time() ; eprint("... eval time: {:.3f}s".format(end-start)) ; start=end
-        return { 'NER': result_NER, 'OTHER': result_OTHER, 'debug': sentence_lists}
+        return { 'NER': result_NER, 'OTHER': result_OTHER, 
+                'debug': sentence_lists, 'note': note, 'eval-time': eval_time}
 
-    end=time.time() ; eprint("... eval time: {:.3f}s".format(end-start)) ; start=end
-    return { 'NER': result_NER, 'OTHER': result_OTHER}
+    #end=time.time() ; eprint("... final time: {:.3f}s".format(end-start)) ; start=end
+    return { 'NER': result_NER, 'OTHER': result_OTHER, 'note': note, 'eval-time': eval_time}
 
 
 
